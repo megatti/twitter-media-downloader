@@ -195,7 +195,7 @@ class ImageDownloadClient(peony.PeonyClient):
         
     
     @peony.task
-    async def add_media_to_queue(self, user_id: int =TWITTER_ID, count: int =300, max_tweets: int =4000) -> None:
+    async def add_media_to_queue(self, user_id: str =TWITTER_ID, count: int =300, max_tweets: int =4000) -> None:
         # user id = 503372454 @GwionNye
         self.check_startup()  # if startup() hasn't been called, call it
         # start going through the likes
