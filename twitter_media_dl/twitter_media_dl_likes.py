@@ -114,12 +114,12 @@ def get_filename(media_info: Dict[str, str]) -> str:
 
 async def download_file(filename: str, media_details: Dict[str, str], 
                         session: aiohttp.ClientSession, new_session: bool =False, 
-                        base_folder: str ="..\\media\\Likes") -> None:
+                        base_folder: str =os.path.join(os.path.dirname(__file__), "..", "media")) -> None:
     if new_session:
         session = aiohttp.ClientSession()
     # 2 final locations
-    all_folder = f"{base_folder}\\__all__\\{filename}"
-    artist_folder = f"{base_folder}\\{media_details['author']}\\{filename}"
+    all_folder = os.path.join(base_folder, "__all__", filename)
+    artist_folder = os.path.join(base_folder, media_details['author'], filename)
 
     # Download to both locations at the same time :O
     retry_count = 0
@@ -141,8 +141,8 @@ async def download_file(filename: str, media_details: Dict[str, str],
                         break
         except FileNotFoundError as e:
             # Try making the main folder and the artist folder
-            os.makedirs(f"{base_folder}\\__all__\\", exist_ok=True)
-            os.makedirs(f"{base_folder}\\{media_details['author']}\\", exist_ok=True)
+            os.makedirs(os.path.join(base_folder, "__all__"), exist_ok=True)
+            os.makedirs(os.path.join(base_folder, media_details['author']), exist_ok=True)
         except asyncio.TimeoutError as e:
             # Timed out :/
             # What to do, what to do...
@@ -162,19 +162,26 @@ async def download_file(filename: str, media_details: Dict[str, str],
 
 
 class ImageDownloadClient(peony.PeonyClient):
+
+    def __init__(self, *args, **kwargs):
+        self.base_folder = kwargs.pop("base_folder", 
+                                      os.path.join(os.path.dirname(__file__), "..", "media"))
+        super().__init__(*args, **kwargs)
+        self.startup()
+
     
-    def startup(self, queue_maxsize: int =50, base_folder: str ="..\\media") -> None:
+    def startup(self, queue_maxsize: int =50) -> None:
         # General startup actions, e.g.:
         # - Load image urls
         # - Create a copy of the old img_urls? as a backup
-        # - Setting count numbers and stuff? idk lol
+        # - Setting count numbers and stuff? not sure
         self.img_urls: Set[str] = set()
         self.dupes = 0
         self.media_queue: asyncio.Queue = asyncio.Queue(maxsize=queue_maxsize)
         
         # Loading image_urls previously downloaded
         try:
-            filename = glob.glob("{base_folder}\\img_urls*.txt")[0]
+            filename = glob.glob(os.path.join(self.base_folder, "img_urls*.txt"))[0]
             with open(filename, "r") as f:
                 self.img_urls.update(line.strip() for line in f.readlines())
         except IndexError:
@@ -232,33 +239,34 @@ class ImageDownloadClient(peony.PeonyClient):
             # Otherwise, do the consuming
             filename = get_filename(media_details)
             
-            await download_file(filename, media_details, self._session)
+            await download_file(filename, media_details, self._session, 
+                                base_folder=os.path.join(self.base_folder, "likes"))
             self.img_urls.add(media_details["url"])
 
 
 if __name__ == "__main__":
     try:
         print("Beginning to download media...")
+        base_folder = os.path.join(os.path.dirname(__file__), "..", "media")
         kwargs = {"consumer_key":CONSUMER_KEY, 
                   "consumer_secret":CONSUMER_SECRET, 
                   "access_token":ACCESS_TOKEN, 
-                  "access_token_secret":ACCESS_TOKEN_SECRET}
+                  "access_token_secret":ACCESS_TOKEN_SECRET, 
+                  "base_folder":base_folder}
         my_client = ImageDownloadClient(**kwargs)
-        my_client.startup()
         my_client.run()
     finally:
         print("Saving data...")
 
         # Move current history to backup folder
-        base_folder = "..\\media"  # Sibling directory
-        os.makedirs(f"{base_folder}\\img_urls_backups", exist_ok=True)
-        current_img_urls = glob.glob(".\\img_urls-*.txt")
+        os.makedirs(os.path.join(base_folder, "img_urls_backups"), exist_ok=True)
+        current_img_urls = glob.glob(os.path.join(base_folder, "img_urls-*.txt"))
         for img_url_file in current_img_urls:  # could be multiple files?? shouldn't be though
-            os.rename(img_url_file, f"{base_folder}\\img_urls_backups\\{img_url_file}")
+            os.rename(img_url_file, os.path.join(base_folder, "img_urls_backups", img_url_file))
         
-        # Save current version
+        # Save new history
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        new_filename = f"img_urls-{current_time}.txt" # Make new version's filename
+        new_filename = os.path.join(base_folder, f"img_urls-{current_time}.txt") # Make new version's filename
         with open(new_filename, "w") as file:  # Save as a text file to read later
             for url in my_client.img_urls:
                 file.write(url + "\n")
