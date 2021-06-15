@@ -1,30 +1,17 @@
-import aiofiles
-import aiohttp
 import asyncio
-import datetime
-import dateutil.parser
-import dotenv
 import glob
 import os
-import peony
-import slugify
 import warnings
 
-from typing import List, Dict, Set, Union, TextIO
+import aiofiles
+import aiohttp
+import dateutil.parser
+import peony
+import slugify
+
+from typing import List, Dict, Set, Union
 
 TweetList = List[peony.data_processing.PeonyResponse]
-
-dotenv.load_dotenv()
-
-# Load environment variables
-try:
-    TWITTER_ID = os.environ["TWITTER_ID"]
-    CONSUMER_KEY = os.environ["CONSUMER_KEY"]
-    CONSUMER_SECRET = os.environ["CONSUMER_SECRET"]
-    ACCESS_TOKEN = os.environ["ACCESS_TOKEN"]
-    ACCESS_TOKEN_SECRET = os.environ["ACCESS_TOKEN_SECRET"]
-except KeyError:
-    raise Exception("Not all required environment variables have been defined.")
 
 def get_media_details(tweets: TweetList) -> List[Dict[str, Union[str, int]]]:
     """
@@ -161,11 +148,12 @@ async def download_file(filename: str, media_details: Dict[str, str],
         await session.close()
 
 
-class ImageDownloadClient(peony.PeonyClient):
+class MediaDownloadClient(peony.PeonyClient):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, user_id: str, *args, **kwargs):
         self.base_folder = kwargs.pop("base_folder", 
                                       os.path.join(os.path.dirname(__file__), "..", "media"))
+        self.user_id = str(user_id)
         super().__init__(*args, **kwargs)
         self.startup()
 
@@ -195,18 +183,17 @@ class ImageDownloadClient(peony.PeonyClient):
     def check_startup(self) -> None:
         # Check that self.startup was called
         if not getattr(self, "startup_done", False):
-            warnings.warn("Startup never called! Calling ImageDownloadClient.startup() now...")
+            warnings.warn("Startup never called! Calling MediaDownloadClient.startup() now...")
             self.startup()
         
     
     @peony.task
-    async def add_media_to_queue(self, user_id: str =TWITTER_ID, count: int =300, max_tweets: int =4000) -> None:
+    async def add_media_to_queue(self, count: int =300, max_tweets: int =4000) -> None:
         self.check_startup()  # if startup() hasn't been called, call it
         # start going through the likes
-        request = self.api.favorites.list.get(id=user_id, count=count, tweet_mode="extended")
+        request = self.api.favorites.list.get(id=self.user_id, count=count, tweet_mode="extended")
         responses = request.iterator.with_max_id()
         
-        # self.my_tweet_count = getattr(self, "my_tweet_count", 0)  # this way it can continue if it starts the task again
         self.my_tweet_count = 0
         # what is tweets? I think it's a list of things
         async for tweets_list in responses:
