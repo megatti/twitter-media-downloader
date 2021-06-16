@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import glob
 import os
@@ -18,18 +19,30 @@ try:
 except KeyError:
     raise Exception("Not all required environment variables have been defined.")
 
+# Parse command line arguments
+modes = ("likes", "timeline", "both")
+description = "Download media from Twitter attached to a user's Likes and/or Timeline."
+parser = argparse.ArgumentParser(description=description)
+parser.add_argument("-u", "--user", default=TWITTER_ID, dest="user_id")
+parser.add_argument("-m", "--mode", default="both", dest="tweet_mode", choices=modes)
+parser.add_argument("-o", "--output", default="media", dest="output_folder")
+
+args = parser.parse_args()
+
 try:
     print("Beginning to download media...")
-    base_folder = os.path.join(os.path.dirname(__file__), "..", "media")
+    base_folder = os.path.join(os.path.dirname(__file__), "..", args.output_folder)
     kwargs = {"consumer_key": CONSUMER_KEY, 
               "consumer_secret": CONSUMER_SECRET, 
               "access_token": ACCESS_TOKEN, 
               "access_token_secret": ACCESS_TOKEN_SECRET, 
               "base_folder": base_folder}
-    my_client = MediaDownloadClient(TWITTER_ID, **kwargs)
+    my_client = MediaDownloadClient(args.user_id, **kwargs)
     my_client.run()
 finally:
     print("Saving data...")
+    print(f"number of dupes: {my_client.dupes}")
+    print(f"number of tweets: {my_client.my_tweet_count}")
 
     # Move current history to backup folder
     os.makedirs(os.path.join(base_folder, "img_urls_backups"), exist_ok=True)
