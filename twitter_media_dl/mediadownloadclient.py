@@ -13,7 +13,7 @@ from typing import List, Dict, Set, Union
 
 TweetList = List[peony.data_processing.PeonyResponse]
 
-def get_media_details(tweets: TweetList) -> List[Dict[str, Union[str, int]]]:
+def get_media_details(tweets: TweetList, mode: str) -> List[Dict[str, Union[str, int]]]:
     """
     Returns a list of dictionaries, each dictionary containing info on the media in the tweet.
     
@@ -32,14 +32,24 @@ def get_media_details(tweets: TweetList) -> List[Dict[str, Union[str, int]]]:
         try:
             # this is where the media on a tweet in extended_mode is
             # for media_index, media in enumerate(tweet.data.extended_entities.media, 1):
-            for media_index, media in enumerate(tweet.extended_entities.media, 1):
+            if mode == "likes":
+                medias = tweet.extended_entities.media
+            elif mode == "retweets":
+                medias = tweet.retweeted_status.extended_entities.media
+
+            for media_index, media in enumerate(medias, 1):
                 media_info_dict: Dict[str, Union[str, int]] = {}
                 
-                # media_info_dict["author"] = slugify.slugify(tweet.data.user.screen_name)  # Their @xxxx handle (without the @)
-                # media_info_dict["date"] = tweet.data.created_at
-                media_info_dict["author"] = slugify.slugify(tweet.user.screen_name)  # Their @xxxx handle (without the @)
-                media_info_dict["date"] = tweet.created_at
-                media_info_dict["id"] = tweet.id
+                # Split behaviour based on likes vs retweets
+                if mode == "likes":
+                    media_info_dict["author"] = slugify.slugify(tweet.user.screen_name)  # Their @xxxx handle (without the @)
+                    media_info_dict["date"] = tweet.created_at
+                    media_info_dict["id"] = tweet.id
+                elif mode == "retweets":
+                    media_info_dict["author"] = slugify.slugify(tweet.retweeted_status.user.screen_name)  # Their @xxxx handle (without the @)
+                    media_info_dict["date"] = tweet.retweeted_status.created_at
+                    media_info_dict["id"] = tweet.retweeted_status.id
+
                 
                 # Deal with images
                 if media.type == "photo":
@@ -150,10 +160,12 @@ async def download_file(filename: str, media_details: Dict[str, str],
 
 class MediaDownloadClient(peony.PeonyClient):
 
-    def __init__(self, user_id: str, *args, **kwargs):
-        self.base_folder = kwargs.pop("base_folder", 
-                                      os.path.join(os.path.dirname(__file__), "..", "media"))
-        self.user_id = str(user_id)
+    def __init__(self, user_id: str, *args, mode: str="both", 
+                 base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
+                 **kwargs):
+        self.base_folder = base_folder
+        self.mode = mode
+        self.user_id = user_id
         super().__init__(*args, **kwargs)
         self.startup()
 
@@ -188,16 +200,21 @@ class MediaDownloadClient(peony.PeonyClient):
         
     
     @peony.task
-    async def add_media_to_queue(self, count: int =300, max_tweets: int =4000) -> None:
+    async def add_media_to_queue(self, count: int =800, max_tweets: int =4000) -> None:
         self.check_startup()  # if startup() hasn't been called, call it
-        # start going through the likes
-        request = self.api.favorites.list.get(id=self.user_id, count=count, tweet_mode="extended")
+
+        # start going through the likes - split behaviour for likes vs retweets
+        if self.mode == "likes":
+            request = self.api.favorites.list.get(id=self.user_id, count=count, tweet_mode="extended")
+        elif self.mode == "retweets":
+            request = self.api.statuses.user_timeline.get(id=self.user_id, count=count, tweet_mode="extended", include_rts=True)
+        
         responses = request.iterator.with_max_id()
         
         self.my_tweet_count = 0
         # what is tweets? I think it's a list of things
         async for tweets_list in responses:
-            media_details_list = get_media_details(tweets_list)  # pass in a list of tweets, get a list out
+            media_details_list = get_media_details(tweets_list, self.mode)  # pass in a list of tweets, get a list out
             for media_details in media_details_list:
                 # Skip ones that have already been downloaded
                 if media_details["url"] in self.img_urls:
