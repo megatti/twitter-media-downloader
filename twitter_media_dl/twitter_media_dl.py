@@ -32,10 +32,13 @@ finally:
     print("Saving data...")
 
     # Move current history to backup folder
-    os.makedirs(os.path.join(base_folder, "img_urls_backups"), exist_ok=True)
-    current_img_urls = glob.glob(os.path.join(base_folder, "img_urls-*.txt"))
-    for img_url_file in current_img_urls:  # could be multiple files?? shouldn't be though
-        os.rename(img_url_file, os.path.join(base_folder, "img_urls_backups", img_url_file))
+    backup_folder = "img_urls_backups"
+    os.makedirs(os.path.join(base_folder, backup_folder), exist_ok=True)
+    old_history = glob.glob(os.path.join(base_folder, "img_urls-*.txt"))
+    for img_url in old_history:  # could be multiple files?? shouldn't be though
+        filename = os.path.basename(img_url)
+        destination = os.path.join(base_folder, backup_folder, filename)
+        os.rename(img_url, destination)
     
     # Save new history
     current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
