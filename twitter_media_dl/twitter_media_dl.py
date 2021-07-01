@@ -26,7 +26,7 @@ try:
               "access_token": ACCESS_TOKEN, 
               "access_token_secret": ACCESS_TOKEN_SECRET, 
               "base_folder": base_folder}
-    my_client = MediaDownloadClient(TWITTER_ID, **kwargs)
+    my_client = MediaDownloadClient(TWITTER_ID, mode="timeline", **kwargs)
     my_client.run()
 finally:
     print("Saving data...")
