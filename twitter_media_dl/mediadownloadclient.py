@@ -209,7 +209,8 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
     def load_history(self):
         """Loads history of urls of media downloaded from a text file."""
         try:
-            filename = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls*.txt"))[0]
+            # Get latest history file
+            filename = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))[-1]
             with open(filename, "r") as f:
                 self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
@@ -220,9 +221,10 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
         """Saves self.urls to a text file."""
         # Move old history to backup folder
         os.makedirs(os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups"), exist_ok=True)
-        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls*.txt"))
-        for media_url_file in current_media_urls:  # could be multiple files
-            os.rename(media_url_file, os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups", media_url_file))
+        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))
+        for source_file in current_media_urls:  # could be multiple files
+            dest_file = os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups", os.path.basename(source_file))
+            os.rename(source_file, dest_file)
         
         # Save new history
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
