@@ -5,7 +5,7 @@ import os
 
 import dotenv
 
-from mediadownloadclient import MediaDownloadClient
+from mediadownloadclient import LikesDownloadClient, TimelineDownloadClient
 
 dotenv.load_dotenv()
 
@@ -19,6 +19,7 @@ try:
 except KeyError:
     raise Exception("Not all required environment variables have been defined.")
 
+<<<<<<< HEAD
 # Parse command line arguments
 modes = ("likes", "timeline", "both")
 description = "Download media from Twitter attached to a user's Likes and/or Timeline."
@@ -57,3 +58,27 @@ finally:
         for url in my_client.img_urls:
             file.write(url + "\n")
             
+=======
+base_folder = os.path.join(os.path.dirname(__file__), "..", "media")
+kwargs = {"consumer_key": CONSUMER_KEY, 
+            "consumer_secret": CONSUMER_SECRET, 
+            "access_token": ACCESS_TOKEN, 
+            "access_token_secret": ACCESS_TOKEN_SECRET, 
+            "base_folder": base_folder}
+
+try:
+    print("Beginning to download likes media...")
+    likes_client = LikesDownloadClient(TWITTER_ID, **kwargs)
+    likes_client.run()
+finally:
+    print("Saving data...")
+    likes_client.save_history()
+            
+try:
+    print("Beginning to download timeline media...")
+    timeline_client = TimelineDownloadClient(TWITTER_ID, **kwargs)
+    timeline_client.run()
+finally:
+    print("Saving data...")
+    timeline_client.save_history()
+>>>>>>> master
