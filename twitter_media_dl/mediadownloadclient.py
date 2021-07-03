@@ -226,7 +226,7 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
         """Saves self.urls to a text file."""
         # Move old history to backup folder
         os.makedirs(os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups"), exist_ok=True)
-        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))
+        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls*.txt"))
         for media_url_file in current_media_urls:  # could be multiple files
             os.rename(media_url_file, os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups", media_url_file))
         

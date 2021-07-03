@@ -34,7 +34,7 @@ finally:
     likes_client.save_history()
             
 try:
-    print("Beginning to download likes media...")
+    print("Beginning to download timeline media...")
     timeline_client = TimelineDownloadClient(TWITTER_ID, **kwargs)
     timeline_client.run()
 finally:
