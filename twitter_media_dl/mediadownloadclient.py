@@ -1,4 +1,6 @@
+import abc
 import asyncio
+import datetime
 import glob
 import os
 import warnings
@@ -54,7 +56,7 @@ def get_media(tweet: peony.data_processing.PeonyResponse, medias: List=[],
     # Ignore replies for now
 
 
-def get_media_details(tweets: TweetList, mode: str) -> List[Dict[str, Union[str, int]]]:
+def get_media_details(tweets: TweetList) -> List[Dict[str, Union[str, int]]]:
     """
     Returns a list of dictionaries, each dictionary containing info on the media in the tweet.
     For quote tweets, returns info on both the quote tweet itself and the quoted tweet.
@@ -154,7 +156,7 @@ async def download_file(filename: str, media_details: Dict[str, str],
             async with aiofiles.open(all_folder, "wb") as base_file, aiofiles.open(artist_folder, "wb") as artist_file:
                 async with session.get(media_details["url"], timeout=600) as response:
                     if response.ok:
-                        # Write with a stream, so large videos don't destroy the memory (lol)
+                        # Write with a stream, so large videos don't destroy the memory
                         while True:
                             chunk = await response.content.read(5000000)  # 5MB chunks
                             if not chunk:  # No more data
@@ -172,7 +174,6 @@ async def download_file(filename: str, media_details: Dict[str, str],
             # What to do, what to do...
             # Maybe delay for a bit?
             asyncio.sleep(10)
-            pass
         except aiohttp.client_exceptions.ClientConnectorError as e:
             # This is a weird error that I don't really understand the cause of :)))
             # But it keeps coming up so I'm just going to tell it to retry
@@ -190,52 +191,70 @@ async def download_file(filename: str, media_details: Dict[str, str],
         await session.close()
 
 
-class MediaDownloadClient(peony.PeonyClient):
+class MediaDownloadClient(peony.PeonyClient, abc.ABC):
 
-    def __init__(self, user_id: str, *args, mode: str="both", 
+    def __init__(self, user_id: str, *args, 
                  base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
                  queuesize: int=50, **kwargs):
         self.base_folder = base_folder
-        self.mode = mode
         self.user_id = user_id
-        super().__init__(*args, **kwargs)
-
-        # General startup actions, e.g. load image urls
-        self.img_urls: Set[str] = set()
         self.dupes = 0
         self.media_queue: asyncio.Queue = asyncio.Queue(maxsize=queuesize)
-        
-        # Loading image_urls previously downloaded
+        super().__init__(*args, **kwargs)
+
+        # Load image urls
+        self.media_urls: Set[str] = set()
+        self.load_history()
+
+
+    def load_history(self):
+        """Loads history of urls of media downloaded from a text file."""
         try:
-            filename = glob.glob(os.path.join(self.base_folder, "img_urls*.txt"))[0]
+            filename = glob.glob(os.path.join(self.base_folder, f"{self.source}_urls*.txt"))[0]
             with open(filename, "r") as f:
-                self.img_urls.update(line.strip() for line in f.readlines())
+                self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
-            warnings.warn("No img_urls.txt file found! Continuing without a history log...")
-            # This should probably raise an exception or something :| hmmmm
+            warnings.warn(f"No {self.source}_urls.txt file found! Continuing with no history...")
+
+
+    def save_history(self):
+        """Saves self.urls to a text file."""
+        # Move old history to backup folder
+        os.makedirs(os.path.join(self.base_folder, f"{self.source}_urls_backups"), exist_ok=True)
+        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.source}_urls-*.txt"))
+        for media_url_file in current_media_urls:  # could be multiple files
+            os.rename(media_url_file, os.path.join(self.base_folder, f"{self.source}_urls_backups", media_url_file))
         
+        # Save new history
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
+        new_filename = os.path.join(self.base_folder, f"{self.source}_urls-{current_time}.txt") # Make new version's filename
+        with open(new_filename, "w") as file:  # Save as a text file to read later
+            for url in self.media_urls:
+                file.write(url + "\n")
+
+
+    @abc.abstractmethod
+    def send_request(self, count):
+        pass
+
     
     @peony.task
     async def add_media_to_queue(self, count: int =800, max_tweets: int =4000) -> None:
         # start going through the likes - split behaviour for likes vs timeline
-        if self.mode == "likes":
-            request = self.api.favorites.list.get(id=self.user_id, count=count, tweet_mode="extended")
-        elif self.mode == "timeline":
-            request = self.api.statuses.user_timeline.get(id=self.user_id, count=count, tweet_mode="extended", include_rts=True)
-        
-        responses = request.iterator.with_max_id()
+        request = self.send_request(count)       
+        responses = request.iterator.with_max_id(count)
         
         self.my_tweet_count = 0
         # responses is a list of Tweet objects
         async for tweets_list in responses:
-            media_details_list = get_media_details(tweets_list, self.mode)  # pass in a list of tweets, get a list out
+            media_details_list = get_media_details(tweets_list)  # pass in a list of tweets, get a list out
             for media_details in media_details_list:
                 # Skip ones that have already been downloaded
-                if media_details["url"] in self.img_urls:
+                if media_details["url"] in self.media_urls:
                     self.dupes += 1  # Keep track of number of duplicates
-                    continue  # URL has already been downloaded, so stop here
+                    continue  # URL has already been downloaded, so continue to next one
                 else:
-                    await self.media_queue.put(media_details)  # details is a dictionary of media info
+                    await self.media_queue.put(media_details)  # media_details is a dictionary of media info
             
             self.my_tweet_count += len(tweets_list)  # keep track of the number of tweets processed
             print(f"Processed to tweet {self.my_tweet_count}")
@@ -257,5 +276,25 @@ class MediaDownloadClient(peony.PeonyClient):
             filename = get_filename(media_details)
             
             await download_file(filename, media_details, self._session, 
-                                base_folder=os.path.join(self.base_folder, self.mode))
-            self.img_urls.add(media_details["url"])
+                                base_folder=os.path.join(self.base_folder, self.source))
+            self.media_urls.add(media_details["url"])
+
+
+class LikesDownloadClient(MediaDownloadClient):
+    def __init___(self, *args, **kwargs):
+        super().init(*args, **kwargs)
+        self.source = "likes"
+
+
+    def send_request(self, count):
+        return self.api.favorites.list.get(id=self.user_id, count=count, tweet_mode="extended")
+
+
+class TimelineDownloadClient(MediaDownloadClient):
+    def __init__(self, *args, **kwargs):
+        super().init(*args, **kwargs)
+        self.source = "timeline"
+
+
+    def send_request(self, count):
+        return self.api.statuses.user_timeline.get(id=self.user_id, count=count, tweet_mode="extended", include_rts=True)
