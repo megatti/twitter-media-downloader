@@ -18,11 +18,11 @@ except KeyError:
     raise Exception("Not all required environment variables have been defined.")
 
 # Parse command line arguments
-modes = ("likes", "timeline", "both")
+sources = ("likes", "timeline", "both")
 description = "Download media from Twitter attached to a user's Likes and/or Timeline."
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument("-u", "--user", default=TWITTER_ID, dest="user_id")
-parser.add_argument("-m", "--mode", default="both", dest="tweet_mode", choices=modes)
+parser.add_argument("-m", "--source", default="both", dest="tweet_source", choices=sources)
 parser.add_argument("-o", "--output", default="media", dest="output_folder")
 
 cmd_args = parser.parse_args()
