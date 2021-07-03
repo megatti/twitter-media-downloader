@@ -5,11 +5,9 @@ import glob
 import os
 import warnings
 
-import aiofiles
 import aiohttp
 import dateutil.parser
 import peony
-from peony.client import PeonyClient
 import slugify
 
 from typing import Any, List, Dict, Set, Union
@@ -66,7 +64,6 @@ def get_media_details(tweets: TweetList) -> List[Dict[str, Union[str, int]]]:
     
     Parameters
     ----------
-    client - peony.PeonyClient object
     tweets  - A list of tweets / statuses. Each tweet *must* have extended_mode = True
     
     Returns
@@ -154,13 +151,13 @@ async def download_file(filename: str, media_details: Dict[str, str],
         retry_count += 1
         try:
             # Open both files at once
-            async with aiofiles.open(all_folder, "wb") as base_file, aiofiles.open(artist_folder, "wb") as artist_file:
+            with open(all_folder, "wb") as base_file, open(artist_folder, "wb") as artist_file:
                 async with session.get(media_details["url"], timeout=600) as response:
                     if response.ok:
                         # Write with a stream, so large videos don't destroy the memory
                         async for chunk in response.content.iter_any():
-                            await base_file.write(chunk)
-                            await artist_file.write(chunk)
+                            base_file.write(chunk)
+                            artist_file.write(chunk)
                         break
         except FileNotFoundError as e:
             # Try making the main folder and the artist folder
