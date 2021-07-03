@@ -9,9 +9,10 @@ import aiofiles
 import aiohttp
 import dateutil.parser
 import peony
+from peony.client import PeonyClient
 import slugify
 
-from typing import List, Dict, Set, Union
+from typing import Any, List, Dict, Set, Union
 
 TweetList = List[peony.data_processing.PeonyResponse]
 
@@ -191,8 +192,12 @@ async def download_file(filename: str, media_details: Dict[str, str],
         await session.close()
 
 
-class MediaDownloadClient(peony.PeonyClient, abc.ABC):
+client_type: Any = type(peony.PeonyClient)
+class MDCMeta(abc.ABCMeta, client_type):
+    pass
 
+
+class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
     def __init__(self, user_id: str, *args, 
                  base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
                  queuesize: int=50, **kwargs):
@@ -210,24 +215,24 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC):
     def load_history(self):
         """Loads history of urls of media downloaded from a text file."""
         try:
-            filename = glob.glob(os.path.join(self.base_folder, f"{self.source}_urls*.txt"))[0]
+            filename = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls*.txt"))[0]
             with open(filename, "r") as f:
                 self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
-            warnings.warn(f"No {self.source}_urls.txt file found! Continuing with no history...")
+            warnings.warn(f"No {self.tweet_source}_urls.txt file found! Continuing with no history...")
 
 
     def save_history(self):
         """Saves self.urls to a text file."""
         # Move old history to backup folder
-        os.makedirs(os.path.join(self.base_folder, f"{self.source}_urls_backups"), exist_ok=True)
-        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.source}_urls-*.txt"))
+        os.makedirs(os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups"), exist_ok=True)
+        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))
         for media_url_file in current_media_urls:  # could be multiple files
-            os.rename(media_url_file, os.path.join(self.base_folder, f"{self.source}_urls_backups", media_url_file))
+            os.rename(media_url_file, os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups", media_url_file))
         
         # Save new history
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
-        new_filename = os.path.join(self.base_folder, f"{self.source}_urls-{current_time}.txt") # Make new version's filename
+        new_filename = os.path.join(self.base_folder, f"{self.tweet_source}_urls-{current_time}.txt") # Make new version's filename
         with open(new_filename, "w") as file:  # Save as a text file to read later
             for url in self.media_urls:
                 file.write(url + "\n")
@@ -242,7 +247,7 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC):
     async def add_media_to_queue(self, count: int =800, max_tweets: int =4000) -> None:
         # start going through the likes - split behaviour for likes vs timeline
         request = self.send_request(count)       
-        responses = request.iterator.with_max_id(count)
+        responses = request.iterator.with_max_id()
         
         self.my_tweet_count = 0
         # responses is a list of Tweet objects
@@ -276,14 +281,14 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC):
             filename = get_filename(media_details)
             
             await download_file(filename, media_details, self._session, 
-                                base_folder=os.path.join(self.base_folder, self.source))
+                                base_folder=os.path.join(self.base_folder, self.tweet_source))
             self.media_urls.add(media_details["url"])
 
 
 class LikesDownloadClient(MediaDownloadClient):
-    def __init___(self, *args, **kwargs):
-        super().init(*args, **kwargs)
-        self.source = "likes"
+    def __init__(self, *args, **kwargs):
+        self.tweet_source = "likes"
+        super().__init__(*args, **kwargs)
 
 
     def send_request(self, count):
@@ -292,8 +297,8 @@ class LikesDownloadClient(MediaDownloadClient):
 
 class TimelineDownloadClient(MediaDownloadClient):
     def __init__(self, *args, **kwargs):
-        super().init(*args, **kwargs)
-        self.source = "timeline"
+        self.tweet_source = "timeline"
+        super().__init__(*args, **kwargs)
 
 
     def send_request(self, count):
