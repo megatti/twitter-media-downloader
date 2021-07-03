@@ -158,13 +158,9 @@ async def download_file(filename: str, media_details: Dict[str, str],
                 async with session.get(media_details["url"], timeout=600) as response:
                     if response.ok:
                         # Write with a stream, so large videos don't destroy the memory
-                        while True:
-                            chunk = await response.content.read(5000000)  # 5MB chunks
-                            if not chunk:  # No more data
-                                break
+                        async for chunk in response.content.iter_any():
                             await base_file.write(chunk)
                             await artist_file.write(chunk)
-                        # Finished, so stop now
                         break
         except FileNotFoundError as e:
             # Try making the main folder and the artist folder
@@ -185,7 +181,7 @@ async def download_file(filename: str, media_details: Dict[str, str],
             asyncio.sleep(10)
 
     if retry_count > 5:
-        # Didn't work - keep track of these?
+        # Didn't work - keep track of these to retry after?
         pass
 
     if new_session:
