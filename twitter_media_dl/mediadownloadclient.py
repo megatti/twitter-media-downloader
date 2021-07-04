@@ -193,10 +193,11 @@ class MDCMeta(abc.ABCMeta, client_type):
 class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
     def __init__(self, user_id: str, *args, 
                  base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
-                 queuesize: int=50, **kwargs):
+                 queuesize: int=100, **kwargs):
         self.base_folder = base_folder
         self.user_id = user_id
         self.dupes = 0
+        self.media_count = 0
         self.media_queue: asyncio.Queue = asyncio.Queue(maxsize=queuesize)
         super().__init__(*args, **kwargs)
 
@@ -208,7 +209,8 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
     def load_history(self):
         """Loads history of urls of media downloaded from a text file."""
         try:
-            filename = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls*.txt"))[0]
+            # Get latest history file
+            filename = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))[-1]
             with open(filename, "r") as f:
                 self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
@@ -219,9 +221,10 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
         """Saves self.urls to a text file."""
         # Move old history to backup folder
         os.makedirs(os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups"), exist_ok=True)
-        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls*.txt"))
-        for media_url_file in current_media_urls:  # could be multiple files
-            os.rename(media_url_file, os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups", media_url_file))
+        current_media_urls = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))
+        for source_file in current_media_urls:  # could be multiple files
+            dest_file = os.path.join(self.base_folder, f"{self.tweet_source}_urls_backups", os.path.basename(source_file))
+            os.rename(source_file, dest_file)
         
         # Save new history
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -238,11 +241,11 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
     
     @peony.task
     async def add_media_to_queue(self, count: int =800, max_tweets: int =4000) -> None:
-        # start going through the likes - split behaviour for likes vs timeline
+        # Start going through the tweets
         request = self.send_request(count)       
         responses = request.iterator.with_max_id()
         
-        self.my_tweet_count = 0
+        self.tweet_count = 0
         # responses is a list of Tweet objects
         async for tweets_list in responses:
             media_details_list = get_media_details(tweets_list)  # pass in a list of tweets, get a list out
@@ -254,9 +257,9 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
                 else:
                     await self.media_queue.put(media_details)  # media_details is a dictionary of media info
             
-            self.my_tweet_count += len(tweets_list)  # keep track of the number of tweets processed
-            print(f"Processed to tweet {self.my_tweet_count}")
-            if self.my_tweet_count >= max_tweets:
+            self.tweet_count += len(tweets_list)  # keep track of the number of tweets processed
+            print(f"Processed to tweet {self.tweet_count}, downloaded {self.media_count} pieces of media.", end="\r")
+            if self.tweet_count >= max_tweets:
                 break
         # Finally, stick a None in the queue to end the process
         await self.media_queue.put(None)
@@ -268,6 +271,7 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
             media_details = await self.media_queue.get()  # a single dictionary
             # Deal with ending the consumer
             if media_details is None:
+                print()  # Done with progress bar
                 break
             
             # Otherwise, do the consuming
@@ -276,6 +280,9 @@ class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
             await download_file(filename, media_details, self._session, 
                                 base_folder=os.path.join(self.base_folder, self.tweet_source))
             self.media_urls.add(media_details["url"])
+            self.media_count += 1
+            # Progress bar printing
+            print(f"Processed to tweet {self.tweet_count}, downloaded {self.media_count} pieces of media.", end="\r")
 
 
 class LikesDownloadClient(MediaDownloadClient):
