@@ -1,11 +1,26 @@
 # twitter_media_dl
 A Python script for downloading media (images, gifs, and videos) from a Twitter user's Likes or Timeline.
 
+## Prerequisites
+
+A Python version of at least 3.6 must be installed on your machine.
+The required libraries for the script can be installed with:
+
+```pip install -r requirements.txt```
+
+If you are using Anaconda, the `environment.yml` file can be used to set up a minimal environment for running the script. To do this, run:
+
+```conda env create -f environment.yml```
+
+This will create a new environment named `twitter_media_dl` that can be used to run the script.
+
 ## Installation
 
 To install this application, clone the repository onto your machine. `twitter_media_dl.py` is the main file which should can be run from the command line with arguments to control the downloader.
 
-The required libraries for the script can be installed with `pip install -r requirements.txt`.
+The required libraries for the script can be installed with:
+
+```pip install -r requirements.txt```
 
 The script uses a `.env` file to define the credentials for the downloader. To get credentials, a Twitter Developer App is needed. To create one, go to https://developer.twitter.com/en. Create an account and then a new Standalone App at https://developer.twitter.com/en/portal/projects-and-apps.
 
