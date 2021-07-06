@@ -29,8 +29,7 @@ Create a file named `.env` in the twitter_media_dl folder. In this file, define 
 ```
 CONSUMER_KEY=<App Consumer Key>
 CONSUMER_SECRET=<App Consumer Secret>
-ACCESS_TOKEN=<App Access Token>
-ACCESS_SECRET=<App Access Secret>
+BEARER_TOKEN=<App Bearer Token>
 ```
 
 A `TWITTER_ID` key and value can also be defined in this .env file. This user ID will be used as the default if no ID is specified from the command line when running the file. The script should now be ready to run.
