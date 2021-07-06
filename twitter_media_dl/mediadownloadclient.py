@@ -190,7 +190,7 @@ class MDCMeta(abc.ABCMeta, client_type):
     pass
 
 
-class MediaDownloadClient(peony.PeonyClient, abc.ABC, metaclass=MDCMeta):
+class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
     def __init__(self, user_id: str, *args, 
                  base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
                  queuesize: int=100, **kwargs):

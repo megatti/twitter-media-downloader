@@ -2,6 +2,7 @@ import argparse
 import os
 
 import dotenv
+import peony.oauth
 
 from mediadownloadclient import LikesDownloadClient, TimelineDownloadClient
 
@@ -14,6 +15,7 @@ try:
     CONSUMER_SECRET = os.environ["CONSUMER_SECRET"]
     ACCESS_TOKEN = os.environ["ACCESS_TOKEN"]
     ACCESS_TOKEN_SECRET = os.environ["ACCESS_TOKEN_SECRET"]
+    BEARER_TOKEN = os.environ["BEARER_TOKEN"]
 except KeyError:
     raise Exception("Not all required environment variables have been defined.")
 
@@ -29,10 +31,10 @@ cmd_args = parser.parse_args()
             
 base_folder = os.path.join(os.path.dirname(__file__), "..", "media")
 kwargs = {"consumer_key": CONSUMER_KEY, 
-            "consumer_secret": CONSUMER_SECRET, 
-            "access_token": ACCESS_TOKEN, 
-            "access_token_secret": ACCESS_TOKEN_SECRET, 
-            "base_folder": base_folder}
+          "consumer_secret": CONSUMER_SECRET, 
+          "bearer_token": BEARER_TOKEN, 
+          "auth": peony.oauth.OAuth2Headers, 
+          "base_folder": base_folder}
 
 if cmd_args.tweet_source in ("both", "likes"):
     try:
