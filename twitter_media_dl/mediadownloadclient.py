@@ -1,5 +1,6 @@
 import abc
 import asyncio
+import curses
 import datetime
 import glob
 import os
@@ -196,14 +197,20 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
                  queuesize: int=100, **kwargs):
         self.base_folder = base_folder
         self.user_id = user_id
-        self.dupes = 0
-        self.media_count = 0
         self.media_queue: asyncio.Queue = asyncio.Queue(maxsize=queuesize)
         super().__init__(*args, **kwargs)
+
+        # For tracking purposes
+        self.dupes = 0
+        self.media_count = 0
 
         # Load image urls
         self.media_urls: Set[str] = set()
         self.load_history()
+
+        # For showing progress
+        self.screen = curses.initscr()
+        curses.noecho()
 
 
     def load_history(self):
@@ -249,6 +256,7 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
         # responses is a list of Tweet objects
         async for tweets_list in responses:
             media_details_list = get_media_details(tweets_list)  # pass in a list of tweets, get a list out
+            self.tweet_count += len(tweets_list)  # keep track of the number of tweets processed
             for media_details in media_details_list:
                 # Skip ones that have already been downloaded
                 if media_details["url"] in self.media_urls:
@@ -257,8 +265,7 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
                 else:
                     await self.media_queue.put(media_details)  # media_details is a dictionary of media info
             
-            self.tweet_count += len(tweets_list)  # keep track of the number of tweets processed
-            print(f"Processed to tweet {self.tweet_count}, downloaded {self.media_count} pieces of media.", end="\r")
+            self.show_progress()
             if self.tweet_count >= max_tweets:
                 break
         # Finally, stick a None in the queue to end the process
@@ -282,7 +289,22 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             self.media_urls.add(media_details["url"])
             self.media_count += 1
             # Progress bar printing
-            print(f"Processed to tweet {self.tweet_count}, downloaded {self.media_count} pieces of media.", end="\r")
+            self.show_progress()
+    
+
+    def show_progress(self):
+        """
+        Used to show progress of downloading media.
+        Shows in format:
+            Processing {source}...
+            Tweets processed: {number of tweets}
+            Media downloaded: {number of media}
+        """
+        self.screen.erase()
+        self.screen.addstr(f"Processing {self.tweet_source}\n")
+        self.screen.addstr(f"Tweets processed: {self.tweet_count}\n")
+        self.screen.addstr(f"Media downloaded: {self.media_count}\n")
+        self.screen.refresh()
 
 
 class LikesDownloadClient(MediaDownloadClient):
