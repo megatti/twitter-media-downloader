@@ -17,8 +17,7 @@ class Test_Peony(unittest.TestCase):
     def setUpClass(cls):
         cls.consumer_key = os.environ["CONSUMER_KEY"]
         cls.consumer_secret = os.environ["CONSUMER_SECRET"]
-        cls.access_token = os.environ["ACCESS_TOKEN"]
-        cls.access_token_secret = os.environ["ACCESS_TOKEN_SECRET"]
+        cls.bearer_token = os.environ["BEARER_TOKEN"]
         
         # Should add a "no_media" example to see what happens with no media
         cls.example_tweet_ids = {"single_image":1373486756306165763, 
