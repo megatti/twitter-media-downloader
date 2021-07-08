@@ -234,6 +234,14 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
                 file.write(url + "\n")
 
 
+    def print_progress(self):
+        """Prints progress of downloading to output.
+        Prints source, number of pieces of media downloaded, and size of queue."""
+        prefix = f"Crawling {self.tweet_source}. ".ljust(17)
+        print(f"{prefix}{self.media_queue.qsize()} tweet(s) in queue, \
+{self.media_count} items downloaded.", end="\r")
+
+
     @abc.abstractmethod
     def send_request(self, count):
         pass
@@ -256,9 +264,9 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
                     continue  # URL has already been downloaded, so continue to next one
                 else:
                     await self.media_queue.put(media_details)  # media_details is a dictionary of media info
-            
+                    self.print_progress()
+
             self.tweet_count += len(tweets_list)  # keep track of the number of tweets processed
-            print(f"Processed to tweet {self.tweet_count}, downloaded {self.media_count} pieces of media.", end="\r")
             if self.tweet_count >= max_tweets:
                 break
         # Finally, stick a None in the queue to end the process
@@ -271,18 +279,19 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             media_details = await self.media_queue.get()  # a single dictionary
             # Deal with ending the consumer
             if media_details is None:
-                print()  # Done with progress bar
+                self.print_progress()
+                print(f"\n{self.tweet_source.capitalize()} done!")  # Done with progress text, so go to next line
                 break
             
-            # Otherwise, do the consuming
+            # Otherwise, consume the next piece of media
             filename = get_filename(media_details)
-            
             await download_file(filename, media_details, self._session, 
                                 base_folder=os.path.join(self.base_folder, self.tweet_source))
+                                
             self.media_urls.add(media_details["url"])
             self.media_count += 1
-            # Progress bar printing
-            print(f"Processed to tweet {self.tweet_count}, downloaded {self.media_count} pieces of media.", end="\r")
+            # Update progress string
+            self.print_progress()
 
 
 class LikesDownloadClient(MediaDownloadClient):
