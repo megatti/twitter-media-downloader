@@ -137,7 +137,7 @@ def get_filename(media_info: Dict[str, str]) -> str:
 
 async def download_file(filename: str, media_details: Dict[str, str], 
                         session: aiohttp.ClientSession, new_session: bool =False, 
-                        base_folder: str =os.path.join(os.path.dirname(__file__), "..", "media")) -> None:
+                        base_folder: str =os.path.join(os.path.dirname(__file__), "..", "media")) -> tuple[str, str]:
     if new_session:
         session = aiohttp.ClientSession()
 
@@ -183,6 +183,8 @@ async def download_file(filename: str, media_details: Dict[str, str],
 
     if new_session:
         await session.close()
+
+    return (all_folder, artist_folder)
 
 
 client_type: Any = type(peony.PeonyClient)
