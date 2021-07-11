@@ -18,6 +18,8 @@ class Test_MediaDownloadClient(unittest.TestCase):
     consumer_key: str
     consumer_secret: str
     bearer_token: str
+    base_folder: str
+    user_id: int
     example_tweet_ids: dict[str, int]
     loop: asyncio.AbstractEventLoop
     client: peony.BasePeonyClient
@@ -29,6 +31,8 @@ class Test_MediaDownloadClient(unittest.TestCase):
         cls.consumer_key = os.environ["CONSUMER_KEY"]
         cls.consumer_secret = os.environ["CONSUMER_SECRET"]
         cls.bearer_token = os.environ["BEARER_TOKEN"]
+        cls.base_folder = os.path.join(os.path.dirname(__file__), "tests", "media")
+        cls.user_id = 19701628  # @BBC official account
         
         # Should add a "no_media" example to see what happens with no media
         cls.example_tweet_ids = {"single_image":1373486756306165763, 
@@ -37,10 +41,18 @@ class Test_MediaDownloadClient(unittest.TestCase):
                                  "video":1372010047056711680, 
                                  "no_media":1373014297895448578}
         cls.loop = asyncio.get_event_loop()
-        cls.client = peony.BasePeonyClient(consumer_key=cls.consumer_key,
-                                       consumer_secret=cls.consumer_secret,
-                                       bearer_token=cls.bearer_token,
-                                       auth=peony.oauth.OAuth2Headers)
+        
+        # LikesDownloadClient will be used as the testing client in this case
+        # There is no real reason other than it is the "original" client for this project
+        # Both LikesD.C. and TimelineD.C. share most functionality due to inheritance
+        # so testing one should test the other well
+        # Any class specific functionality will be tested separately
+        cls.client = mdc.LikesDownloadClient(cls.user_id, 
+                                             consumer_key=cls.consumer_key, 
+                                             consumer_secret=cls.consumer_secret,
+                                             bearer_token=cls.bearer_token,
+                                             auth=peony.oauth.OAuth2Headers, 
+                                             base_folder=cls.base_folder)
 
         # Get the tweets once when setting up, then just use these for each test
         # Will hopefully help avoid rate limits :s
@@ -52,7 +64,7 @@ class Test_MediaDownloadClient(unittest.TestCase):
             cls.cached_tweets[media_type] = cls.loop.run_until_complete(
                 cls.client.api.statuses.show.get(id=tweet_id, tweet_mode="extended", count=1))
 
-        cls.delete_later = []
+        cls.delete_later = []  # keep track of any files to delete after testing is complete
 
     
     @classmethod
@@ -109,13 +121,13 @@ class Test_MediaDownloadClient(unittest.TestCase):
                     "img2021-07-07-181833_dooblebugs_3_1412838462206615559_E5to1YdUYAI9eek.png": "multi_image_media4.png", 
                     "gif2021-03-16-210559_dnoodels_1371930768306540546.mp4": "animated_gif_media.mp4", 
                     "video2021-03-17-022100_megateyourbagel_1372010047056711680.mp4": "video_media.mp4"}
-        # Going to have to wrap this in an async function somewhere :|
+        # Maybe wrap this in an async function somewhere :|
         for tweet in self.cached_tweets.values():
             media_details = mdc.get_media_details([tweet])
             # Each media_details is a list for each media in a tweet
             for info in media_details:
                 filename = mdc.get_filename(info)
-                all_file, artist_file = self.loop.run_until_complete(mdc.download_file(filename, info, None, new_session=True))
+                all_file, artist_file = self.loop.run_until_complete(mdc.download_file(filename, info, None, new_session=True, base_folder=self.base_folder))
                 self.delete_later.extend((all_file, artist_file))
                 expected_file = f"tests\\expected\\{expected[filename]}"
                 with self.subTest(filename=filename):
@@ -128,17 +140,29 @@ class Test_MediaDownloadClient(unittest.TestCase):
         pass
 
 
+    def test_save_history(self):
+        # Add urls to current media_urls (assert that it actually adds them)
+        media_details = mdc.get_media_details(self.cached_tweets.values())
+        self.client.media_urls.update([media["url"] for media in media_details])
+        self.assertTrue(len(self.client.media_urls) > 0)
+        # Save data
+        logfile = self.client.save_history()
+
+        # Load data back into a set
+        saved_data = set()
+        with open(logfile, "r") as log:
+            saved_data.update([url.strip() for url in log.readlines()])
+
+        # Check that current data matches the saved data
+        self.assertEqual(self.client.media_urls, saved_data)
+
+
     def test_load_history(self):
         # check that the set it loads to ends up having all of the urls
         pass
 
     
-    def test_save_history(self):
-        # test that the file it saves to contains all of the urls in its set
-        pass
-
-    
-    # Add tests for adding to queue and getting media from queue? IDK
+    # Add tests for adding media to queue and getting media from queue? Not sure
 
 
 

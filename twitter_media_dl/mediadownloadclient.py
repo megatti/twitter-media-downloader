@@ -235,6 +235,8 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             for url in self.media_urls:
                 file.write(url + "\n")
 
+        return new_filename
+
 
     def print_progress(self):
         """Prints progress of downloading to output.
