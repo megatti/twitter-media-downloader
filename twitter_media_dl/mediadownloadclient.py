@@ -10,7 +10,7 @@ import dateutil.parser
 import peony
 import slugify
 
-from typing import Any, List, Dict, Set, Union
+from typing import Any, List, Dict, Set, Tuple, Union
 
 TweetList = List[peony.data_processing.PeonyResponse]
 
@@ -212,8 +212,8 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
         """Loads history of urls of media downloaded from a text file."""
         try:
             # Get latest history file
-            filename = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))[-1]
-            with open(filename, "r") as f:
+            logfile = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))[-1]
+            with open(logfile, "r") as f:
                 self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
             warnings.warn(f"No {self.tweet_source}_urls.txt file found! Continuing with no history...")
