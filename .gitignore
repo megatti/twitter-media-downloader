@@ -11,3 +11,5 @@ twitter_media_dl/img_urls*
 twitter_media_dl/*launch.json
 twitter_media_dl/*.ipynb
 twitter_media_dl/twitter_media_dl_retweets.py
+__pycache__
+twitter_media_dl/download_one_media.py
