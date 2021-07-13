@@ -159,9 +159,18 @@ class Test_MediaDownloadClient(unittest.TestCase):
 
     def test_load_history(self):
         # check that the set it loads to ends up having all of the urls
-        pass
+        expected_urls = {"https://pbs.twimg.com/media/E5totsvVUAYexVX.png:orig", 
+                         "https://pbs.twimg.com/media/E5to1YdUYAI9eek.png:orig", 
+                         "https://video.twimg.com/ext_tw_video/1372009605736194048/pu/vid/1280x720/l3Ujw1tsP7jWvOSg.mp4?tag=12", 
+                         "https://video.twimg.com/tweet_video/EwoThfmWgAs-FAz.mp4", 
+                         "https://pbs.twimg.com/media/Ew-a7MFU8AANIL9.jpg:orig", 
+                         "https://pbs.twimg.com/media/E5toyv_VgAMmKwD.png:orig", 
+                         "https://pbs.twimg.com/media/E5towDIVUAM0xv9.png:orig"}
 
-    
+        self.client.media_urls.clear()
+        self.client.load_history(search_folder=os.path.join("tests", "expected"))
+
+        self.assertEqual(expected_urls, self.client.media_urls)
     # Add tests for adding media to queue and getting media from queue? Not sure
 
 

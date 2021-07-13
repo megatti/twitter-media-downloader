@@ -208,11 +208,14 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
         self.load_history()
 
 
-    def load_history(self):
+    def load_history(self, search_folder=None):
         """Loads history of urls of media downloaded from a text file."""
+        if not search_folder:
+            search_folder = self.base_folder
+
         try:
             # Get latest history file
-            filename = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))[-1]
+            filename = glob.glob(os.path.join(search_folder, f"{self.tweet_source}_urls*.txt"))[-1]
             with open(filename, "r") as f:
                 self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
