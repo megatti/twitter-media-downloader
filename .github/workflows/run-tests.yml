@@ -22,5 +22,10 @@ jobs:
       # You can test your matrix by printing the current Python version
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
+      - name: Set environment variables
+        env: # Or as an environment variable
+          CONSUMER_KEY: ${{ secrets.CONSUMER_KEY }}
+          BEARER_TOKEN: ${{ secrets.BEARER_TOKEN }}
+          CONSUMER_SECRET: ${{ secrets.CONSUMER_SECRET }}
       - name: Run tests
         run: python -m unittest discover -v  # discovers the tests and runs them, verbose output

@@ -11,7 +11,6 @@ import twitter_media_dl.mediadownloadclient as mdc
 import peony
 import peony.oauth
 
-dotenv.load_dotenv("twitter_media_dl\.env")
 
 class Test_MediaDownloadClient(unittest.TestCase):
     # Stop mypy from complaining >:/
@@ -28,9 +27,13 @@ class Test_MediaDownloadClient(unittest.TestCase):
    
     @classmethod
     def setUpClass(cls) -> None:
-        cls.consumer_key = os.environ["CONSUMER_KEY"]
-        cls.consumer_secret = os.environ["CONSUMER_SECRET"]
-        cls.bearer_token = os.environ["BEARER_TOKEN"]
+        try:
+            dotenv.load_dotenv("twitter_media_dl\.env")
+        finally:
+            cls.consumer_key = os.environ["CONSUMER_KEY"]
+            cls.consumer_secret = os.environ["CONSUMER_SECRET"]
+            cls.bearer_token = os.environ["BEARER_TOKEN"]
+            
         cls.base_folder = os.path.join(os.path.dirname(__file__), "tests", "media")
         cls.user_id = 19701628  # @BBC official account
         
