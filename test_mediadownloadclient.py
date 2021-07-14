@@ -87,7 +87,7 @@ class Test_MediaDownloadClient(unittest.TestCase):
         # Loading the expected results which were saved to pickle files
         expected = dict()
         for media_type in self.example_tweet_ids.keys():
-            with open(f"tests\\expected\\{media_type}_media_details.pickle", "rb") as f:
+            with open(os.path.join("tests", "expected", f"{media_type}_media_details.pickle"), "rb") as f:
                 expected[media_type] = pickle.load(f)
 
         # Check that the media titles match what they should be
@@ -133,7 +133,7 @@ class Test_MediaDownloadClient(unittest.TestCase):
                 filename = mdc.get_filename(info)
                 all_file, artist_file = self.loop.run_until_complete(mdc.download_file(filename, info, None, new_session=True, base_folder=self.base_folder))
                 self.delete_later.extend((all_file, artist_file))
-                expected_file = f"tests\\expected\\{expected[filename]}"
+                expected_file = os.path.join("tests", "expected", f"{expected[filename]}")
                 with self.subTest(filename=filename):
                     self.assertTrue(filecmp.cmp(all_file, expected_file) and filecmp.cmp(artist_file, expected_file))
                 
