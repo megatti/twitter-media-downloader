@@ -2,7 +2,6 @@ import asyncio
 import filecmp
 import os
 import pickle
-import typing
 import unittest
 
 import aiohttp
@@ -10,6 +9,8 @@ import dotenv
 import twitter_media_dl.mediadownloadclient as mdc
 import peony
 import peony.oauth
+
+from typing import Dict, List
 
 
 class Test_MediaDownloadClient(unittest.TestCase):
@@ -19,11 +20,11 @@ class Test_MediaDownloadClient(unittest.TestCase):
     bearer_token: str
     base_folder: str
     user_id: int
-    example_tweet_ids: dict[str, int]
+    example_tweet_ids: Dict[str, int]
     loop: asyncio.AbstractEventLoop
     client: peony.BasePeonyClient
-    cached_tweets: dict[str, peony.data_processing.PeonyResponse]
-    delete_later: list[str]
+    cached_tweets: Dict[str, peony.data_processing.PeonyResponse]
+    delete_later: List[str]
    
     @classmethod
     def setUpClass(cls) -> None:
