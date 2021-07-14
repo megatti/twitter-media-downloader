@@ -21,6 +21,7 @@ class Test_MediaDownloadClient(unittest.TestCase):
     base_folder: str
     user_id: int
     example_tweet_ids: Dict[str, int]
+    example_types: Dict[int, str]
     loop: asyncio.AbstractEventLoop
     client: peony.BasePeonyClient
     cached_tweets: Dict[str, peony.data_processing.PeonyResponse]
@@ -44,6 +45,8 @@ class Test_MediaDownloadClient(unittest.TestCase):
                                  "animated_gif":1371930768306540546, 
                                  "video":1372010047056711680, 
                                  "no_media":1373014297895448578}
+        cls.example_types = {tweet_id: media_type for media_type, tweet_id in cls.example_tweet_ids.items()}
+
         cls.loop = asyncio.get_event_loop()
         
         # LikesDownloadClient will be used as the testing client in this case
@@ -64,9 +67,11 @@ class Test_MediaDownloadClient(unittest.TestCase):
         # Have a whole collecion of tweets that it chooses one at random from? :thinking:
         # Seems a bit odd to have randomness like that in unit tests though...
         cls.cached_tweets = {}
-        for media_type, tweet_id in cls.example_tweet_ids.items():
-            cls.cached_tweets[media_type] = cls.loop.run_until_complete(
-                cls.client.api.statuses.show.get(id=tweet_id, tweet_mode="extended", count=1))
+        id_list = list(cls.example_tweet_ids.values())
+        tweets = cls.loop.run_until_complete(cls.client.api.statuses.lookup.get(id=id_list, tweet_mode="extended"))
+
+        for tweet in tweets:
+            cls.cached_tweets[cls.example_types[tweet.id]] = tweet
 
         cls.delete_later = []  # keep track of any files to delete after testing is complete
 
