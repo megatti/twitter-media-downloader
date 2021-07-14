@@ -137,7 +137,7 @@ def get_filename(media_info: Dict[str, str]) -> str:
 
 async def download_file(filename: str, media_details: Dict[str, str], 
                         session: aiohttp.ClientSession, new_session: bool =False, 
-                        base_folder: str =os.path.join(os.path.dirname(__file__), "..", "media")) -> tuple[str, str]:
+                        base_folder: str =os.path.join(os.path.dirname(__file__), "..", "media")) -> Tuple[str, str]:
     if new_session:
         session = aiohttp.ClientSession()
 
@@ -215,13 +215,8 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
 
         try:
             # Get latest history file
-<<<<<<< HEAD
             logfile = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls-*.txt"))[-1]
             with open(logfile, "r") as f:
-=======
-            filename = glob.glob(os.path.join(search_folder, f"{self.tweet_source}_urls*.txt"))[-1]
-            with open(filename, "r") as f:
->>>>>>> master
                 self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
             warnings.warn(f"No {self.tweet_source}_urls.txt file found! Continuing with no history...")
