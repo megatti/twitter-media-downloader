@@ -174,7 +174,7 @@ class Test_MediaDownloadClient(unittest.TestCase):
         self.client.media_urls.clear()
         self.client.load_history(search_folder=os.path.join("tests", "expected"))
 
-        self.assertEqual(expected_urls, self.client.media_urls)
+        self.assertEqual(expected_urls, self.client.media_urls, msg=self.client.media_urls)
     # Add tests for adding media to queue and getting media from queue? Not sure
 
 

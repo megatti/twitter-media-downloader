@@ -215,7 +215,7 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
 
         try:
             # Get latest history file
-            logfile = glob.glob(os.path.join(self.base_folder, f"{self.tweet_source}_urls*.txt"))[-1]
+            logfile = glob.glob(os.path.join(search_folder, f"{self.tweet_source}_urls*.txt"))[-1]
             with open(logfile, "r") as f:
                 self.media_urls.update(line.strip() for line in f.readlines())
         except IndexError:
