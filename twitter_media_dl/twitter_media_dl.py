@@ -14,8 +14,8 @@ try:
     CONSUMER_KEY = os.environ["CONSUMER_KEY"]
     CONSUMER_SECRET = os.environ["CONSUMER_SECRET"]
     BEARER_TOKEN = os.environ["BEARER_TOKEN"]
-except KeyError:
-    raise Exception("Not all required environment variables have been defined.")
+except KeyError as keyerror:
+    raise Exception("Not all required environment variables have been defined.") from keyerror
 
 # Parse command line arguments
 sources = ("likes", "timeline", "both")
@@ -24,15 +24,17 @@ parser = argparse.ArgumentParser(description=description)
 parser.add_argument("-u", "--user", default=TWITTER_ID, dest="user_id")
 parser.add_argument("-m", "--source", default="both", dest="tweet_source", choices=sources)
 parser.add_argument("-o", "--output", default="media", dest="output_folder")
+parser.add_argument("-l", "--log_level", default="INFO", dest="log_level")
 
 cmd_args = parser.parse_args()
-            
+
 base_folder = os.path.join(os.path.dirname(__file__), "..", "media")
-kwargs = {"consumer_key": CONSUMER_KEY, 
-          "consumer_secret": CONSUMER_SECRET, 
-          "bearer_token": BEARER_TOKEN, 
-          "auth": peony.oauth.OAuth2Headers, 
-          "base_folder": base_folder}
+kwargs = {"consumer_key": CONSUMER_KEY,
+          "consumer_secret": CONSUMER_SECRET,
+          "bearer_token": BEARER_TOKEN,
+          "auth": peony.oauth.OAuth2Headers,
+          "base_folder": base_folder, 
+          "log_level": cmd_args.log_level}
 
 if cmd_args.tweet_source in ("both", "likes"):
     try:

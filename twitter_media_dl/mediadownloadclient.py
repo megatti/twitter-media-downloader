@@ -2,6 +2,7 @@ import abc
 import asyncio
 import datetime
 import glob
+import logging
 import os
 import warnings
 
@@ -231,7 +232,7 @@ class MDCMeta(abc.ABCMeta, client_type):
 class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
     def __init__(self, user_id: str, *args,
                  base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
-                 queuesize: int=100, **kwargs):
+                 queuesize: int=100, log_level: str="WARNING", **kwargs):
         self.base_folder = base_folder
         self.user_id = user_id
         self.tweet_count = 0
@@ -239,6 +240,9 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
         self.media_count = 0
         self.media_queue: asyncio.Queue = asyncio.Queue(maxsize=queuesize)
         super().__init__(*args, **kwargs)
+
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(log_level)
 
         # Load image urls
         self.media_urls: Set[str] = set()
@@ -256,8 +260,9 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             with open(logfile, "r") as file:
                 self.media_urls.update(line.strip() for line in file.readlines())
         except IndexError:
-            warnings.warn(f"No {self.tweet_source}_urls.txt file found!"
-                          " Continuing with no history...")
+            warn_message = (f"No {self.tweet_source}_urls.txt file found!"
+                            " Continuing with no history...")
+            self.logger.warning(warn_message)
 
 
     def save_history(self):
@@ -288,8 +293,9 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
         """Prints progress of downloading to output.
         Prints source, number of pieces of media downloaded, and size of queue."""
         prefix = f"Crawling {self.tweet_source}. ".ljust(17)
-        print(f"{prefix}{self.media_queue.qsize()} tweet(s) in queue,"
-              f" {self.media_count} items downloaded.", end="\r")
+        prog_message = (f"{prefix}{self.media_queue.qsize()} tweet(s) in queue,", 
+                        f" {self.media_count} items downloaded.")
+        self.logger.debug(prog_message)
 
 
     @abc.abstractmethod
@@ -331,7 +337,7 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             if media_details is None:
                 self.print_progress()
                 # Done with progress text, so go to next line
-                print(f"\n{self.tweet_source.capitalize()} done!")
+                self.logger.info(f"\n{self.tweet_source.capitalize()} done!")
                 break
 
             # Otherwise, consume the next piece of media
