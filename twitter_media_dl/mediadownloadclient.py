@@ -4,7 +4,7 @@ import datetime
 import glob
 import logging
 import os
-import warnings
+import sys
 
 from typing import Any, List, Dict, Set, Tuple, Union
 
@@ -232,7 +232,7 @@ class MDCMeta(abc.ABCMeta, client_type):
 class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
     def __init__(self, user_id: str, *args,
                  base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
-                 queuesize: int=100, log_level: str="WARNING", **kwargs):
+                 queuesize: int=100, log_level: str="WARNING", show_progress: bool=False, **kwargs):
         self.base_folder = base_folder
         self.user_id = user_id
         self.tweet_count = 0
@@ -241,8 +241,24 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
         self.media_queue: asyncio.Queue = asyncio.Queue(maxsize=queuesize)
         super().__init__(*args, **kwargs)
 
+        # default logger, used for most logging
+        log_format = "%(message)s"
+        formatter = logging.Formatter(log_format)
+        stream = sys.stdout
+        logging.basicConfig(format=log_format, stream=stream)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
+
+        # progress logger, used specifically for noting download progress on a single line
+        self.prog_logger = self.logger.getChild("progress")
+        prog_handler = logging.StreamHandler(stream=stream)
+        prog_handler.terminator = "\r"
+        prog_handler.setFormatter(formatter)
+        self.prog_logger.handlers.clear()
+        self.prog_logger.addHandler(prog_handler)
+        self.prog_logger.propagate = False
+        self.prog_logger.setLevel("INFO")
+        self.show_progress = show_progress
 
         # Load image urls
         self.media_urls: Set[str] = set()
@@ -289,14 +305,16 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
         return new_filename
 
 
-    def print_progress(self):
-        """Prints progress of downloading to output.
-        Prints source, number of pieces of media downloaded, and size of queue."""
-        prefix = f"Crawling {self.tweet_source}. ".ljust(17)
-        prog_message = (f"{prefix}{self.media_queue.qsize()} tweet(s) in queue,", 
-                        f" {self.media_count} items downloaded.")
-        self.logger.debug(prog_message)
-
+    def log_progress(self, final=False):
+        if self.show_progress:
+            """Logs progress of downloading to output.
+            Logs source, number of pieces of media downloaded, and size of queue."""
+            prefix = f"Crawling {self.tweet_source}. ".ljust(17)
+            prog_message = (f"{prefix}{self.media_queue.qsize()} tweet(s) in queue,"
+                            f" {self.media_count} items downloaded.")
+            if final:
+                prog_message += "\n"
+            self.prog_logger.info(prog_message)
 
     @abc.abstractmethod
     def send_request(self, count):
@@ -320,7 +338,7 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
                     continue  # URL has already been downloaded, so continue to next one
 
                 await self.media_queue.put(media_details)  # put in dictionary of media info
-                self.print_progress()
+                self.log_progress()
 
             self.tweet_count += len(tweets_list)  # keep track of the number of tweets processed
             if self.tweet_count >= max_tweets:
@@ -335,9 +353,9 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             media_details = await self.media_queue.get()  # a single dictionary
             # Deal with ending the consumer
             if media_details is None:
-                self.print_progress()
+                self.log_progress(final=True)
                 # Done with progress text, so go to next line
-                self.logger.info(f"\n{self.tweet_source.capitalize()} done!")
+                self.logger.info("%s done!", self.tweet_source.capitalize())
                 break
 
             # Otherwise, consume the next piece of media
@@ -348,7 +366,7 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             self.media_urls.add(media_details["url"])
             self.media_count += 1
             # Update progress string
-            self.print_progress()
+            self.log_progress()
 
 
 class LikesDownloadClient(MediaDownloadClient):
