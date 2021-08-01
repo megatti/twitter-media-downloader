@@ -20,12 +20,13 @@ except KeyError as keyerror:
 
 # Parse command line arguments
 sources = ("likes", "timeline", "both")
+log_levels = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 description = "Download media from Twitter attached to a user's Likes and/or Timeline."
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument("-u", "--user", default=TWITTER_ID, dest="user_id")
 parser.add_argument("-m", "--source", default="both", dest="tweet_source", choices=sources)
 parser.add_argument("-o", "--output", default="media", dest="output_folder")
-parser.add_argument("-l", "--log-level", default="DEBUG", dest="log_level")
+parser.add_argument("-l", "--log-level", default="WARNING", dest="log_level", choices="log_levels")
 parser.add_argument("-p", "--show-progress", dest="show_progress",
                     action="store_true")  # defaults to False
 
