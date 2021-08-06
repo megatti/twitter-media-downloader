@@ -145,8 +145,8 @@ def get_filename(media_info: Dict[str, str]) -> str:
 
 async def download_file(filename: str, media_details: Dict[str, str],
                         session: aiohttp.ClientSession, new_session: bool =False,
-                        base_folder: str =os.path.join(os.path.dirname(__file__), "..", "media")
-                        ) -> Tuple[str, str]:
+                        base_folder: str =os.path.join(os.path.dirname(__file__), "..", "media"),
+                        copytype: str ="copy") -> Tuple[str, str]:
     """
     Downloads a piece of media from Twitter. The item is downloaded to two folders
     under base_folder: an "__all__" folder used to collect all pieces of media, and
@@ -169,12 +169,18 @@ async def download_file(filename: str, media_details: Dict[str, str],
     base_folder: str, default = os.path.join(os.path.dirname(__file__), "..", "media")
         Base folder in which to place the downloaded file.
         Defaults to a sibling folder named 'media'.
+    copytype: str, default = "copy"
+        Controls what type of copy to create in artist specific folder.
+        Options are "copy", "symlink", "hardlink".
 
     Returns
     -------
     (all_folder, artist_folder): (str, str)
         Returns the locations of the files that were downloaded as a tuple pair.
     """
+    if copytype not in ("copy", "symlink", "hardlink"):
+        raise ValueError("copytype must be copy, symlink or hardlink.")
+
     if new_session:
         session = aiohttp.ClientSession()
 
@@ -194,7 +200,8 @@ async def download_file(filename: str, media_details: Dict[str, str],
                         # Write with a stream, so large videos don't destroy the memory
                         async for chunk in response.content.iter_any():
                             base_file.write(chunk)
-                            artist_file.write(chunk)
+                            if copytype == "copy":
+                                artist_file.write(chunk)
                         break
         except FileNotFoundError:
             # Try making the main folder and the artist folder
@@ -217,6 +224,16 @@ async def download_file(filename: str, media_details: Dict[str, str],
     if retry_count > 5:
         # Didn't work - keep track of these to retry after?
         pass
+    else:
+        # Create symlink / hardlink
+        try:
+            if copytype == "symlink":
+                os.symlink(all_folder, artist_folder)
+            elif copytype == "hardlink":
+                os.link(all_folder, artist_folder)
+        except OSError as e:
+            print("Link to file could not be created!")
+            raise
 
     if new_session:
         await session.close()
@@ -232,13 +249,15 @@ class MDCMeta(abc.ABCMeta, client_type):
 class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
     def __init__(self, user_id: str, *args,
                  base_folder: str=os.path.join(os.path.dirname(__file__), "..", "media"),
-                 queuesize: int=100, log_level: str="WARNING", show_progress: bool=False, **kwargs):
+                 queuesize: int=100, log_level: str="WARNING", show_progress: bool=False,
+                 copytype="copy", **kwargs):
         self.base_folder = base_folder
         self.user_id = user_id
         self.tweet_count = 0
         self.dupes = 0
         self.media_count = 0
         self.media_queue: asyncio.Queue = asyncio.Queue(maxsize=queuesize)
+        self.copytype = copytype
         super().__init__(*args, **kwargs)
 
         # default logger, used for most logging
@@ -306,9 +325,9 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
 
 
     def log_progress(self, final=False):
+        """Logs progress of downloading to output.
+        Logs source, number of pieces of media downloaded, and size of queue."""
         if self.show_progress:
-            """Logs progress of downloading to output.
-            Logs source, number of pieces of media downloaded, and size of queue."""
             prefix = f"Crawling {self.tweet_source}. ".ljust(17)
             prog_message = (f"{prefix}{self.media_queue.qsize()} tweet(s) in queue,"
                             f" {self.media_count} items downloaded.")
@@ -361,7 +380,8 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             # Otherwise, consume the next piece of media
             filename = get_filename(media_details)
             await download_file(filename, media_details, self._session,
-                                base_folder=os.path.join(self.base_folder, self.tweet_source))
+                                base_folder=os.path.join(self.base_folder, self.tweet_source),
+                                copytype=self.copytype)
 
             self.media_urls.add(media_details["url"])
             self.media_count += 1
