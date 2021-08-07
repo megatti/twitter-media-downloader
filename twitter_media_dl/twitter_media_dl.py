@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description=description)
 parser.add_argument("-u", "--user", default=TWITTER_ID, dest="user_id")
 parser.add_argument("-m", "--source", default="both", dest="tweet_source", choices=sources)
 parser.add_argument("-o", "--output", default="media", dest="output_folder")
-parser.add_argument("-l", "--log-level", default="WARNING", dest="log_level", choices="log_levels")
+parser.add_argument("-l", "--log-level", default="INFO", dest="log_level", choices="log_levels")
 parser.add_argument("-p", "--show-progress", dest="show_progress",
                     action="store_true")  # defaults to False
 parser.add_argument("-c", "--copytype", default="copy", dest="copytype", choices=copy_options)

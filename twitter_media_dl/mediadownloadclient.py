@@ -179,6 +179,7 @@ async def download_file(filename: str, media_details: Dict[str, str],
     (all_folder, artist_folder): (str, str)
         Returns the locations of the files that were downloaded as a tuple pair.
     """
+    logger = logging.getLogger(__name__)
     if copytype not in ("copy", "symlink", "hardlink"):
         raise ValueError("copytype must be copy, symlink or hardlink.")
 
@@ -189,29 +190,24 @@ async def download_file(filename: str, media_details: Dict[str, str],
     all_folder = os.path.join(base_folder, "__all__", filename)
     artist_folder = os.path.join(base_folder, media_details['author'], filename)
 
-    # Download to both locations at the same time, retry 5 times per image
+    # Download to all_folder first, retry 5 times per image
     retry_count = 0
     while retry_count <= 5:
         retry_count += 1
         try:
-            # Open both files at once
-            # with open(all_folder, "wb") as base_file, open(artist_folder, "wb") as artist_file:
+            # Open all_folder file to write to first, then copy / link later
             with open(all_folder, "wb") as base_file:
                 async with session.get(media_details["url"], timeout=600) as response:
                     if response.ok:
                         # Write with a stream, so large videos don't destroy the memory
                         async for chunk in response.content.iter_any():
                             base_file.write(chunk)
-                            if copytype == "copy":
-                                artist_file.write(chunk)
                         break
         except FileNotFoundError:
-            # Try making the main folder and the artist folder
+            # Try making the all_folder directory
             os.makedirs(os.path.dirname(all_folder), exist_ok=True)
-            os.makedirs(os.path.dirname(artist_folder), exist_ok=True)
         except asyncio.TimeoutError:
             # Timed out :/
-            # What to do, what to do...
             # Maybe delay for a bit?
             asyncio.sleep(10)
         except aiohttp.client_exceptions.ClientConnectorError:
@@ -224,7 +220,8 @@ async def download_file(filename: str, media_details: Dict[str, str],
             asyncio.sleep(10)
 
     if retry_count > 5:
-        # Didn't work - keep track of these to retry after?
+        # In this case downloading didn't work
+        # Keep track of these to retry after?
         pass
     else:
         # Create symlink / hardlink
@@ -237,13 +234,15 @@ async def download_file(filename: str, media_details: Dict[str, str],
         except FileExistsError:
             # Not sure why I keep getting this with hardlinks :s
             # Why is it trying to make them multiple times?
-            pass
+            logger.debug("Couldn't create link, got FileExistsError")
         except OSError:
-            print("Link to file could not be created! Copying file instead...")
-            raise
+            logger.warning("Link to file could not be created! Copying file instead...")
             # Copy file since a link isn't working :/
+            copytype = "copy"
+
+        # Finally, make a straight copy of the file if necessary
+        if copytype == "copy":
             shutil.copyfile(all_folder, artist_folder)
-            # raise
 
     if new_session:
         await session.close()
@@ -335,8 +334,10 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
 
 
     def log_progress(self, final=False):
-        """Logs progress of downloading to output.
-        Logs source, number of pieces of media downloaded, and size of queue."""
+        """
+        Logs progress of downloading to output.
+        Logs source, number of pieces of media downloaded, and size of queue.
+        """
         if self.show_progress:
             prefix = f"Crawling {self.tweet_source}. ".ljust(17)
             prog_message = (f"{prefix}{self.media_queue.qsize()} tweet(s) in queue,"
@@ -344,6 +345,7 @@ class MediaDownloadClient(peony.BasePeonyClient, abc.ABC, metaclass=MDCMeta):
             if final:
                 prog_message += "\n"
             self.prog_logger.info(prog_message)
+
 
     @abc.abstractmethod
     def send_request(self, count):
