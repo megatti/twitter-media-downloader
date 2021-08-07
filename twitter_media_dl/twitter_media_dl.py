@@ -21,6 +21,7 @@ except KeyError as keyerror:
 # Parse command line arguments
 sources = ("likes", "timeline", "both")
 log_levels = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+copy_options = ("copy", "symlink", "hardlink")
 description = "Download media from Twitter attached to a user's Likes and/or Timeline."
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument("-u", "--user", default=TWITTER_ID, dest="user_id")
@@ -29,6 +30,7 @@ parser.add_argument("-o", "--output", default="media", dest="output_folder")
 parser.add_argument("-l", "--log-level", default="WARNING", dest="log_level", choices="log_levels")
 parser.add_argument("-p", "--show-progress", dest="show_progress",
                     action="store_true")  # defaults to False
+parser.add_argument("-c", "--copytype", default="copy", dest="copytype", choices=copy_options)
 
 cmd_args = parser.parse_args()
 
@@ -43,7 +45,8 @@ kwargs = {"consumer_key": CONSUMER_KEY,
           "auth": peony.oauth.OAuth2Headers,
           "base_folder": base_folder,
           "log_level": cmd_args.log_level,
-          "show_progress": cmd_args.show_progress}
+          "show_progress": cmd_args.show_progress,
+          "copytype": cmd_args.copytype}
 
 if cmd_args.tweet_source in ("both", "likes"):
     try:

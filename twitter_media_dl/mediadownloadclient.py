@@ -4,6 +4,7 @@ import datetime
 import glob
 import logging
 import os
+import shutil
 import sys
 
 from typing import Any, List, Dict, Set, Tuple, Union
@@ -194,7 +195,8 @@ async def download_file(filename: str, media_details: Dict[str, str],
         retry_count += 1
         try:
             # Open both files at once
-            with open(all_folder, "wb") as base_file, open(artist_folder, "wb") as artist_file:
+            # with open(all_folder, "wb") as base_file, open(artist_folder, "wb") as artist_file:
+            with open(all_folder, "wb") as base_file:
                 async with session.get(media_details["url"], timeout=600) as response:
                     if response.ok:
                         # Write with a stream, so large videos don't destroy the memory
@@ -205,8 +207,8 @@ async def download_file(filename: str, media_details: Dict[str, str],
                         break
         except FileNotFoundError:
             # Try making the main folder and the artist folder
-            os.makedirs(os.path.join(base_folder, "__all__"), exist_ok=True)
-            os.makedirs(os.path.join(base_folder, media_details['author']), exist_ok=True)
+            os.makedirs(os.path.dirname(all_folder), exist_ok=True)
+            os.makedirs(os.path.dirname(artist_folder), exist_ok=True)
         except asyncio.TimeoutError:
             # Timed out :/
             # What to do, what to do...
@@ -227,13 +229,21 @@ async def download_file(filename: str, media_details: Dict[str, str],
     else:
         # Create symlink / hardlink
         try:
+            os.makedirs(os.path.dirname(artist_folder), exist_ok=True)
             if copytype == "symlink":
                 os.symlink(all_folder, artist_folder)
             elif copytype == "hardlink":
                 os.link(all_folder, artist_folder)
-        except OSError as e:
-            print("Link to file could not be created!")
+        except FileExistsError:
+            # Not sure why I keep getting this with hardlinks :s
+            # Why is it trying to make them multiple times?
+            pass
+        except OSError:
+            print("Link to file could not be created! Copying file instead...")
             raise
+            # Copy file since a link isn't working :/
+            shutil.copyfile(all_folder, artist_folder)
+            # raise
 
     if new_session:
         await session.close()
