@@ -6,14 +6,18 @@ from ..twitter_media_dl import peony_bot
 import pickle
 import unittest
 
+import os
+import dotenv
+
+dotenv.load_dotenv()
+
 class Test_Peony(unittest.TestCase):
     
     @classmethod
     def setUpClass(cls):
-        cls.consumer_key = "Bs97q0M66b5iZLpbujWWEZssq"
-        cls.consumer_secret = "EeF3V1aVtdoy6cvBJfS51kUtNluJ7SK9ZWUIIWsDWI5mw9TD6v"
-        cls.access_token = "503372454-ZcBsrG8fIZTmkcmvYSSOY7jhd5ilZqgKAOlzXSUI"
-        cls.access_token_secret = "Y6Qsy33PCoQKam36D5wtqQHyW272B8DHfMxpv9ajItkbv"
+        cls.consumer_key = os.environ["CONSUMER_KEY"]
+        cls.consumer_secret = os.environ["CONSUMER_SECRET"]
+        cls.bearer_token = os.environ["BEARER_TOKEN"]
         
         # Should add a "no_media" example to see what happens with no media
         cls.example_tweet_ids = {"single_image":1373486756306165763, 
