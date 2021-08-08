@@ -1,7 +1,8 @@
 .mypy_cache/
 .vscode/
-backup
-media
+backup/
+media/
+media2/
 twitter_media_dl/.ipynb_checkpoints/
 twitter_media_dl/.mypy_cache/
 twitter_media_dl/.vscode/
@@ -11,5 +12,5 @@ twitter_media_dl/img_urls*
 twitter_media_dl/*launch.json
 twitter_media_dl/*.ipynb
 twitter_media_dl/twitter_media_dl_retweets.py
-__pycache__
+__pycache__/
 twitter_media_dl/download_one_media.py
